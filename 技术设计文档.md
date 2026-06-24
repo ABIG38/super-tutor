@@ -288,7 +288,7 @@ class StudyTracker:
   - 删除课程：移除课程及关联的所有文档和进度数据
   - 选课后：上传文档、提问、生成计划均限于当前选定课程
 
-存储：课程列表持久化到 `knowledge_base/index/courses.json`，格式为 `[{"id": "uuid", "name": "数据结构", "created_at": "..."}]`
+存储：课程列表持久化到 `knowledge_base/index/courses.json`，格式为 `[{"id": "uuid", "name": "数据结构", "organize_by": "chapter", "created_at": "..."}]`。`organize_by` 在首次生成计划时自动判断并写入，可选 `"chapter"`（按章节）或 `"knowledge_point"`（按知识点）。
 ```
 
 **与规划引擎的联动**：
@@ -446,6 +446,44 @@ class StudyPlanner:
               · 每天的练习必须具体（如「完成课后习题 1-5 题」「某年真题第 X 题」）
            — 硬性约束："只能基于提供的章节目录和重难点生成计划，不在目录中的章节不要编造"
         ⑥ LLM 生成 → Markdown 计划
+
+**组织方式自动判断**（按课程存储，courses.json 中记录）：
+
+并非所有课程都适合按章节组织。系统在第一次生成计划时自动判断该课程的组织方式，判断结果存入 courses.json，后续直接使用：
+
+```
+首次生成计划时：
+  ① 尝试正则匹配章节标题（"第X章" / "Chapter X" / "X. X" / "Module X"）
+  ② 如果 15 张纸条中有 ≥3 张匹配到章节模式 → 判定为「按章节」
+  ③ 否则 → 判定为「按知识点」
+  ④ 判断结果存入 courses.json：{"id": "...", "name": "课程1", "organize_by": "chapter"}
+
+两种组织方式的区别：
+                                                                 
+  按章节（教材类）             按知识点（辅导书/真题/杂乱资料）        
+  ─────────────               ─────────────                         
+  第1天：第1章 绪论            第1天：知识点A + 知识点B               
+    ☐ 1.1 数据结构概念            ☐ B+树的概念与特性                   
+    ☐ 1.2 算法分析                ☐ B+树的插入与删除                   
+                                                                   
+  第2天：第2章 线性表            第2天：知识点C + 知识点D               
+    ☐ 2.1 顺序表                  ☐ 哈希函数设计                        
+    ☐ 2.2 链表                    ☐ 冲突解决策略                        
+                                                                   
+  适用：教材                    适用：真题集、辅导书、笔记               
+       有清晰目录结构                 无固定章节、零散知识点                
+```
+
+**降级链路**（三段式，与组织方式判断独立）：
+
+```
+正则匹配章节 → 命中 ≥3 个 → 按章节组织
+    ↓ 失败
+LLM 从 chunk 提取目录 → 成功 → 按章节组织
+    ↓ 失败
+LLM 从 chunk 总结知识框架 → 无论结果 → 按知识点组织（降级）
+    ↓ 用户界面提示：「未检测到标准目录，已按知识点生成计划」
+```
 ```
 
 **文件清单**：
@@ -862,7 +900,7 @@ class Settings(BaseSettings):
 | ⑥ | 检索分数过低 | `merged[0]["score"] < 0.3` | 返回 `[]`，orchestrator 收到空列表后不调 LLM，直接提示「未找到」 | orchestrator.py |
 | ⑦ | LLM 自省判断无实质答案 | System Prompt 第 6 条 | LLM 返回「未在上传文档中找到相关答案，请检查文档内容或更换提问方式」 | llm/client.py |
 | ⑧ | 无教材时生成计划 | `self._sources` 为空 | 返回「请先上传教材」 | planner.py |
-| ⑨ | 教材无目录 | 检索结果不匹配章节正则 + LLM 判断失败 | 降级为按知识点划分计划，并告知用户原因（与 2.4 StudyPlanner 三段式检测一致） | planner.py |
+| ⑨ | 教材无章节结构（辅导书/笔记等） | 检索结果匹配章节正则 <3 个 | `organize_by` 设为 `knowledge_point`，按知识点划分计划，并告知用户原因 | planner.py |
 | ⑩ | 索引中途关闭应用 | ChromaDB 自带事务持久化；BM25 pickle 使用「临时文件 + 原子 rename」策略防断电损坏。注意：Windows 下 `os.replace()` 在目标文件被占用时会抛 `PermissionError`，实现时追加兜底：`os.remove + shutil.move` | 下次启动自动加载已有数据 | vector_store + bm25 |
 | ⑪ | .env 缺失 / API Key 为空 | `config.py` 加载时检查 | `config.py` 不抛异常，允许启动。UI 层检测 Key 为空时弹引导对话框（创建 .env 或手动输入） | config.py + desktop_app.py |
 | ⑫ | API 超时 | `openai.APITimeoutError` | sleep 1s → 重试 1 次 → `raise LLMError("网络异常")` → UI 提示 | llm/client.py |
