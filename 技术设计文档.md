@@ -47,7 +47,7 @@
 
 四层结构：
 
-- **UI 层**：PySide6 原生桌面窗口，四区布局（知识库列表 + 问答 Tab + 规划 Tab + 学习进度面板）。每页顶部有课程选择器下拉框，当前选定课程作为检索/规划/追踪的上下文范围
+- **UI 层**：PySide6 原生桌面窗口，四区布局（知识库列表 + 问答 Tab + 规划 Tab + 学习进度面板）。每页顶部有课程选择器下拉框（从 courses.json 加载），当前选定课程作为检索/规划/追踪的上下文范围。用户可重命名课程名，新增/删除课程
 - **逻辑层**：`SuperTutorAgent` 单例统管四个子引擎（文档 / 检索 / 规划 / 学习追踪），纯 Python 显式调用
 - **基础设施层**：ChromaDB 本地持久化 + BM25 内存索引（pickle 持久化）+ LLM HTTP API + SQLite 学习进度数据库
 
@@ -277,7 +277,23 @@ class StudyTracker:
         关闭数据库连接。
 ```
 
+**课程模板管理**（统一模板，用户可改名）：
+
+```
+系统内置课程模板（可扩展）:
+  ["高等数学", "线性代数", "概率论", "数据结构", "计算机组成原理",
+   "操作系统", "计算机网络", "考研英语", "考研政治", "考研数学"]
+
+用户操作:
+  - 重命名：修改模板显示名（如 "数据结构" -> "数据结构（2026版）"）
+  - 增删：从模板列表中添加/移除课程
+  - 选课后：上传文档、提问、生成计划均限于当前选定课程
+
+存储：课程配置持久化到 `knowledge_base/index/courses.json`
+```
+
 **与规划引擎的联动**：
+
 
 ```
 generate_plan(source_chunks, course: str = "", completed_chapters=None) -> plan_markdown
@@ -616,6 +632,7 @@ super-tutor/
 │       ├── chroma/                # ChromaDB 持久化目录
 │       ├── bm25_corpus.pkl        # BM25 分词语料（原子写入）
 │       ├── learning_progress.db   # SQLite 学习进度数据库（WAL 模式）
+│       ├── courses.json           # 课程模板配置（用户可改名/增删）
 │       └── logs/                  # 应用日志（按天滚动，保留 30 天）
 └── tests/
     ├── test_document.py
@@ -707,6 +724,7 @@ class Settings(BaseSettings):
     transformers_offline: bool = True  # 打包后强制离线，禁止运行时联网下载模型
     storage_root: str = "knowledge_base"  # 数据存储根目录，用户可自定义（防 C 盘空间不足）
     tracker_db_path: str = ""       # 学习进度数据库路径，空则使用 {storage_root}/index/learning_progress.db
+    courses_config_path: str = ""  # 课程模板配置路径，空则使用 {storage_root}/index/courses.json
 
     class Config:
         env_file = ".env"
@@ -745,6 +763,7 @@ class Settings(BaseSettings):
 | ㉒ | 并发写入 SQLite | 多线程同时调用 mark_task | WAL 模式 + `retry_on_busy`（重试 3 次，间隔 50ms），仍失败则 `raise RuntimeError` | tracker.py |
 | ㉓ | 首次使用无进度 | 查询 `daily_task` 表为空 | `get_completed_chapters()` 返回空列表，规划引擎按原始流程执行，UI 显示「暂无学习记录，开始学习吧！」 | tracker.py + planner.py |
 | ㉔ | 跨课程文档上传 | 上传文档时指定 course | 按 course 写入 ChromaDB metadata + SQLite，检索时按 course 过滤，不同课程的 chunk 互不干扰 | orchestrator.py |
+| ㉕ | courses.json 缺失或损坏 | 启动时检测文件不存在或 JSON 解析失败 | 自动重建默认课程模板列表，原文件重命名为 `.bak` | config.py |
 
 ---
 
