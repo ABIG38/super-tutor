@@ -28,7 +28,14 @@ class SettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("⚙️ 设置")
-        self.setMinimumWidth(450)
+        self.setMinimumWidth(480)
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #181b24;
+                border: 1px solid #2a2e3d;
+                border-radius: 12px;
+            }
+        """)
         self._setup_ui()
         self._load_env()
 
@@ -37,32 +44,85 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(self)
 
         form = QFormLayout()
-        form.setSpacing(10)
+        form.setSpacing(12)
+        form.setContentsMargins(0, 0, 0, 0)
 
         self.api_key_edit = QLineEdit()
         self.api_key_edit.setPlaceholderText("sk-...")
         self.api_key_edit.setEchoMode(QLineEdit.Password)
-        form.addRow("API Key:", self.api_key_edit)
+        self.api_key_edit.setStyleSheet(self._input_style())
+        form.addRow(self._label("API Key:"), self.api_key_edit)
 
         self.api_base_edit = QLineEdit()
         self.api_base_edit.setPlaceholderText("https://api.deepseek.com/v1")
-        form.addRow("API Base:", self.api_base_edit)
+        self.api_base_edit.setStyleSheet(self._input_style())
+        form.addRow(self._label("API Base:"), self.api_base_edit)
 
         self.model_edit = QLineEdit()
         self.model_edit.setPlaceholderText("deepseek-chat")
-        form.addRow("模型:", self.model_edit)
+        self.model_edit.setStyleSheet(self._input_style())
+        form.addRow(self._label("模型:"), self.model_edit)
 
         self.storage_edit = QLineEdit()
         self.storage_edit.setPlaceholderText("knowledge_base")
-        form.addRow("存储目录:", self.storage_edit)
+        self.storage_edit.setStyleSheet(self._input_style())
+        form.addRow(self._label("存储目录:"), self.storage_edit)
 
         layout.addLayout(form)
 
         # 按钮
         buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        buttons.setStyleSheet("""
+            QPushButton {
+                background-color: #1e2231;
+                color: #e8eaf0;
+                border: 1px solid #2a2e3d;
+                border-radius: 8px;
+                padding: 8px 20px;
+                font-size: 13px;
+                font-weight: 500;
+                min-width: 80px;
+            }
+            QPushButton:hover {
+                background-color: #242838;
+                border-color: #6c63ff40;
+            }
+            QPushButton[text="Save"], QPushButton[text="保存"] {
+                background-color: #6c63ff;
+                border: none;
+                color: white;
+            }
+            QPushButton[text="Save"]:hover, QPushButton[text="保存"]:hover {
+                background-color: #7c73ff;
+            }
+        """)
         buttons.accepted.connect(self._save_env)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+    def _label(self, text: str) -> QLabel:
+        label = QLabel(text)
+        label.setStyleSheet("color: #8b8fa3; font-size: 13px; font-weight: 500;")
+        return label
+
+    def _input_style(self) -> str:
+        return """
+            QLineEdit {
+                background-color: #1c2030;
+                color: #e8eaf0;
+                border: 1px solid #2a2e3d;
+                border-radius: 8px;
+                padding: 10px 14px;
+                font-size: 13px;
+                min-height: 20px;
+            }
+            QLineEdit:focus {
+                border-color: #6c63ff;
+            }
+            QLineEdit::placeholder {
+                color: #5a5e72;
+            }
+        """
 
     def _load_env(self) -> None:
         """从 .env 加载当前配置。"""

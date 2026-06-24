@@ -41,14 +41,56 @@ class DocumentTree(QWidget):
         self.tree = QTreeWidget()
         self.tree.setHeaderHidden(True)
         self.tree.setIndentation(16)
+        self.tree.setAnimated(True)
+        self.tree.setStyleSheet("""
+            QTreeWidget {
+                background-color: #181b24;
+                color: #8b8fa3;
+                border: none;
+                font-size: 13px;
+                padding: 8px 0;
+                outline: none;
+            }
+            QTreeWidget::item {
+                padding: 6px 12px;
+                border-radius: 6px;
+                margin: 1px 6px;
+            }
+            QTreeWidget::item:hover {
+                background-color: #1e2231;
+                color: #e8eaf0;
+            }
+            QTreeWidget::item:selected {
+                background-color: #6c63ff20;
+                color: #6c63ff;
+            }
+            QTreeWidget::branch {
+                background: transparent;
+            }
+        """)
         self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._show_context_menu)
         layout.addWidget(self.tree)
 
         # 上传按钮
-        self.btn_upload = QPushButton("📄 上传文档")
-        self.btn_upload.clicked.connect(self._upload_document)
-        layout.addWidget(self.btn_upload)
+        self.btn_upload = QPushButton("  📄  上传文档")
+        self.btn_upload.setStyleSheet("""
+            QPushButton {
+                background-color: #6c63ff;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 10px;
+                font-size: 13px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: #7c73ff;
+            }
+            QPushButton:pressed {
+                background-color: #5b52e8;
+            }
+        """)
 
         # 初始占位
         self._show_empty_state()

@@ -48,6 +48,23 @@ class PlanPage(QWidget):
         self.days_spin.setRange(1, 365)
         self.days_spin.setValue(30)
         self.days_spin.setSuffix(" 天")
+        self.days_spin.setStyleSheet("""
+            QSpinBox {
+                background-color: #1c2030;
+                color: #e8eaf0;
+                border: 1px solid #2a2e3d;
+                border-radius: 6px;
+                padding: 6px 10px;
+                font-size: 13px;
+                min-height: 24px;
+            }
+            QSpinBox:focus { border-color: #6c63ff; }
+            QSpinBox::up-button, QSpinBox::down-button {
+                border: none;
+                background: transparent;
+                width: 20px;
+            }
+        """)
         params_layout.addWidget(self.days_spin)
 
         params_layout.addWidget(QLabel("每天:"))
@@ -55,20 +72,23 @@ class PlanPage(QWidget):
         self.hours_spin.setRange(1, 16)
         self.hours_spin.setValue(2)
         self.hours_spin.setSuffix(" 小时")
+        self.hours_spin.setStyleSheet(self.days_spin.styleSheet())
         params_layout.addWidget(self.hours_spin)
 
-        self.btn_generate = QPushButton("📅 生成计划")
+        self.btn_generate = QPushButton("  📅  生成计划  ")
+        self.btn_generate.setFixedHeight(38)
         self.btn_generate.setStyleSheet("""
             QPushButton {
-                background-color: #3b82f6;
+                background-color: #6c63ff;
                 color: white;
                 border: none;
-                border-radius: 6px;
-                padding: 8px 20px;
+                border-radius: 8px;
+                padding: 8px 24px;
                 font-size: 13px;
                 font-weight: 600;
             }
-            QPushButton:hover { background-color: #2563eb; }
+            QPushButton:hover { background-color: #7c73ff; }
+            QPushButton:pressed { background-color: #5b52e8; }
         """)
         params_layout.addWidget(self.btn_generate)
         params_layout.addStretch()
@@ -79,7 +99,7 @@ class PlanPage(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setStyleSheet("QScrollArea { background: transparent; }")
+        scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
 
         self.plan_container = QWidget()
         self.plan_layout = QVBoxLayout(self.plan_container)
@@ -95,57 +115,52 @@ class PlanPage(QWidget):
         self.progress_bar.setValue(0)
         self.progress_bar.setTextVisible(True)
         self.progress_bar.setFormat("整体进度: %p%")
-        self.progress_bar.setFixedHeight(24)
+        self.progress_bar.setFixedHeight(22)
         self.progress_bar.setStyleSheet("""
             QProgressBar {
-                border: 1px solid #e2e8f0;
+                border: none;
                 border-radius: 6px;
                 text-align: center;
                 font-size: 12px;
-                color: #1e293b;
-                background-color: #f1f5f9;
+                color: #e8eaf0;
+                background-color: #1c2030;
+                font-weight: 500;
             }
             QProgressBar::chunk {
-                background-color: #3b82f6;
-                border-radius: 5px;
+                background-color: #6c63ff;
+                border-radius: 6px;
             }
         """)
         layout.addWidget(self.progress_bar)
 
         self.label_completed = QLabel("已掌握章节: 无")
-        self.label_completed.setStyleSheet("color: #64748b; font-size: 12px;")
+        self.label_completed.setStyleSheet("color: #5a5e72; font-size: 12px; padding: 2px 0;")
         layout.addWidget(self.label_completed)
 
         # ── 操作按钮 ──────────────────────────────
         actions_layout = QHBoxLayout()
         actions_layout.setSpacing(8)
 
-        self.btn_regenerate = QPushButton("🔄 重新生成（跳过已学）")
+        self.btn_regenerate = QPushButton("  🔄  重新生成（跳过已学）  ")
         self.btn_regenerate.setStyleSheet("""
             QPushButton {
-                background-color: #f1f5f9;
-                border: 1px solid #cbd5e1;
-                border-radius: 6px;
+                background-color: #1e2231;
+                border: 1px solid #2a2e3d;
+                border-radius: 8px;
                 padding: 8px 16px;
                 font-size: 12px;
-                color: #475569;
+                color: #8b8fa3;
             }
-            QPushButton:hover { background-color: #e2e8f0; }
+            QPushButton:hover {
+                background-color: #242838;
+                color: #e8eaf0;
+                border-color: #6c63ff40;
+            }
         """)
         actions_layout.addWidget(self.btn_regenerate)
 
-        self.btn_export = QPushButton("📤 导出计划")
-        self.btn_export.setStyleSheet("""
-            QPushButton {
-                background-color: #f1f5f9;
-                border: 1px solid #cbd5e1;
-                border-radius: 6px;
-                padding: 8px 16px;
-                font-size: 12px;
-                color: #475569;
-            }
-            QPushButton:hover { background-color: #e2e8f0; }
-        """)
+        self.btn_export = QPushButton("  📤  导出计划  ")
+        self.btn_export.setStyleSheet(self.btn_regenerate.styleSheet())
         actions_layout.addWidget(self.btn_export)
         actions_layout.addStretch()
 
@@ -158,7 +173,7 @@ class PlanPage(QWidget):
         """空状态提示。"""
         self._clear_plan()
         label = QLabel("📋 设置天数和学时，点击生成计划")
-        label.setStyleSheet("color: #94a3b8; font-size: 14px; padding: 40px;")
+        label.setStyleSheet("color: #5a5e72; font-size: 14px; padding: 60px 40px;")
         label.setAlignment(Qt.AlignCenter)
         self.plan_layout.addWidget(label)
 
@@ -191,10 +206,10 @@ class PlanPage(QWidget):
         card = QFrame()
         card.setStyleSheet("""
             QFrame {
-                background-color: #ffffff;
-                border: 1px solid #e2e8f0;
-                border-radius: 8px;
-                padding: 12px;
+                background-color: #1c2030;
+                border: 1px solid #2a2e3d;
+                border-radius: 10px;
+                padding: 14px;
             }
         """)
 
@@ -203,21 +218,39 @@ class PlanPage(QWidget):
 
         # 标题
         header = QLabel(f"📅 第 {day} 天 — {title}")
-        header.setStyleSheet("font-weight: 600; font-size: 13px; color: #1e293b;")
+        header.setStyleSheet("font-weight: 600; font-size: 13px; color: #e8eaf0;")
         card_layout.addWidget(header)
 
         # 任务列表
         checked = 0
         for task in tasks:
             cb = QCheckBox(task)
-            cb.setStyleSheet("font-size: 12px; color: #475569; padding: 2px 0;")
+            cb.setStyleSheet("""
+                QCheckBox {
+                    font-size: 12px; color: #8b8fa3; padding: 3px 0;
+                    spacing: 8px;
+                }
+                QCheckBox::indicator {
+                    width: 16px; height: 16px;
+                    border: 2px solid #35394a;
+                    border-radius: 4px;
+                    background-color: transparent;
+                }
+                QCheckBox::indicator:checked {
+                    background-color: #6c63ff;
+                    border-color: #6c63ff;
+                }
+                QCheckBox::indicator:hover {
+                    border-color: #6c63ff80;
+                }
+            """)
             cb.toggled.connect(self._update_progress)
             card_layout.addWidget(cb)
 
         # 分隔线
         line = QFrame()
         line.setFrameShape(QFrame.HLine)
-        line.setStyleSheet("color: #f1f5f9;")
+        line.setStyleSheet(f"color: #2a2e3d;")
         card_layout.addWidget(line)
 
         # 进度条
@@ -226,18 +259,19 @@ class PlanPage(QWidget):
         progress.setValue(0)
         progress.setTextVisible(True)
         progress.setFormat(f"已完成 0/{len(tasks)}")
-        progress.setFixedHeight(16)
+        progress.setFixedHeight(14)
         progress.setStyleSheet("""
             QProgressBar {
                 border: none;
                 border-radius: 4px;
                 text-align: center;
                 font-size: 11px;
-                color: #64748b;
-                background-color: #f1f5f9;
+                color: #e8eaf0;
+                background-color: #1e2231;
+                font-weight: 500;
             }
             QProgressBar::chunk {
-                background-color: #22c55e;
+                background-color: #34d399;
                 border-radius: 4px;
             }
         """)

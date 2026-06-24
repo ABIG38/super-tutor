@@ -76,30 +76,74 @@ class CourseSelector(QWidget):
     def _setup_ui(self) -> None:
         """构建 UI：下拉框 + 新建按钮。"""
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 2, 10, 2)
-        layout.setSpacing(6)
+        layout.setContentsMargins(8, 2, 8, 2)
+        layout.setSpacing(4)
 
         self.combo = QComboBox()
-        self.combo.setMinimumWidth(180)
+        self.combo.setMinimumWidth(160)
+        self.combo.setStyleSheet("""
+            QComboBox {
+                background-color: #1e2231;
+                color: #e8eaf0;
+                border: 1px solid #2a2e3d;
+                border-radius: 6px;
+                padding: 6px 12px;
+                font-size: 13px;
+                font-weight: 500;
+                min-height: 24px;
+            }
+            QComboBox:hover {
+                border-color: #6c63ff;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 24px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #1c2030;
+                color: #e8eaf0;
+                border: 1px solid #2a2e3d;
+                border-radius: 6px;
+                padding: 4px;
+                selection-background-color: #6c63ff40;
+                outline: none;
+            }
+            QComboBox QAbstractItemView::item {
+                padding: 6px 12px;
+                border-radius: 4px;
+            }
+            QComboBox QAbstractItemView::item:hover {
+                background-color: #242838;
+            }
+        """)
         self.combo.currentIndexChanged.connect(self._on_selected)
         layout.addWidget(self.combo)
 
-        self.btn_new = QPushButton("+ 新建")
-        self.btn_new.setFixedSize(70, 28)
-        self.btn_new.clicked.connect(self._add_course)
-        layout.addWidget(self.btn_new)
-
-        self.btn_rename = QPushButton("✏️")
-        self.btn_rename.setFixedSize(32, 28)
-        self.btn_rename.setToolTip("重命名当前课程")
-        self.btn_rename.clicked.connect(self._rename_course)
-        layout.addWidget(self.btn_rename)
-
-        self.btn_delete = QPushButton("🗑️")
-        self.btn_delete.setFixedSize(32, 28)
-        self.btn_delete.setToolTip("删除当前课程")
-        self.btn_delete.clicked.connect(self._delete_course)
-        layout.addWidget(self.btn_delete)
+        for text, tip in [("+", "新建课程"), ("✎", "重命名"), ("×", "删除")]:
+            btn = QPushButton(text)
+            btn.setFixedSize(28, 28)
+            btn.setToolTip(tip)
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: transparent;
+                    color: #8b8fa3;
+                    border: none;
+                    border-radius: 6px;
+                    font-size: 16px;
+                    font-weight: 600;
+                }
+                QPushButton:hover {
+                    background-color: #242838;
+                    color: #e8eaf0;
+                }
+            """)
+            layout.addWidget(btn)
+            if text == "+":
+                btn.clicked.connect(self._add_course)
+            elif text == "✎":
+                btn.clicked.connect(self._rename_course)
+            else:
+                btn.clicked.connect(self._delete_course)
 
     def _load(self) -> None:
         """加载课程列表到下拉框。"""

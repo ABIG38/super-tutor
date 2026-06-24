@@ -39,7 +39,7 @@ class ChatPage(QWidget):
 
         # 状态标签
         self.status_label = QLabel("💡 输入问题开始学习")
-        self.status_label.setStyleSheet("color: #64748b; font-size: 12px;")
+        self.status_label.setStyleSheet("color: #5a5e72; font-size: 12px; padding: 4px 0;")
         layout.addWidget(self.status_label)
 
         # 聊天记录
@@ -47,12 +47,14 @@ class ChatPage(QWidget):
         self.browser.setOpenExternalLinks(True)
         self.browser.setStyleSheet("""
             QTextBrowser {
-                background-color: #ffffff;
-                border: 1px solid #e2e8f0;
-                border-radius: 8px;
-                padding: 12px;
+                background-color: #1c2030;
+                border: 1px solid #2a2e3d;
+                border-radius: 10px;
+                padding: 16px;
                 font-size: 14px;
-                line-height: 1.6;
+                line-height: 1.7;
+                color: #e8eaf0;
+                selection-background-color: #6c63ff40;
             }
         """)
         layout.addWidget(self.browser, stretch=1)
@@ -60,22 +62,24 @@ class ChatPage(QWidget):
         # 反馈按钮
         feedback_layout = QHBoxLayout()
         feedback_layout.setSpacing(6)
-        self.btn_useful = QPushButton("👍 有用")
-        self.btn_useless = QPushButton("👎 没用")
-        self.btn_irrelevant = QPushButton("🤷 不相关")
+        self.btn_useful = QPushButton("  👍 有用  ")
+        self.btn_useless = QPushButton("  👎 没用  ")
+        self.btn_irrelevant = QPushButton("  🤷 不相关  ")
         for btn in (self.btn_useful, self.btn_useless, self.btn_irrelevant):
-            btn.setFixedHeight(30)
+            btn.setFixedHeight(28)
             btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #f1f5f9;
-                    border: 1px solid #e2e8f0;
+                    background-color: #1e2231;
+                    border: 1px solid #2a2e3d;
                     border-radius: 6px;
                     padding: 4px 12px;
                     font-size: 12px;
-                    color: #475569;
+                    color: #8b8fa3;
                 }
                 QPushButton:hover {
-                    background-color: #e2e8f0;
+                    background-color: #242838;
+                    border-color: #6c63ff40;
+                    color: #e8eaf0;
                 }
             """)
             feedback_layout.addWidget(btn)
@@ -90,51 +94,65 @@ class ChatPage(QWidget):
         self.input_edit.setPlaceholderText("💬 输入问题...")
         self.input_edit.setStyleSheet("""
             QLineEdit {
-                border: 1px solid #cbd5e1;
-                border-radius: 8px;
-                padding: 10px 14px;
+                border: 1px solid #2a2e3d;
+                border-radius: 10px;
+                padding: 10px 16px;
                 font-size: 14px;
-                background-color: #ffffff;
+                background-color: #1c2030;
+                color: #e8eaf0;
+                selection-background-color: #6c63ff40;
             }
             QLineEdit:focus {
-                border-color: #3b82f6;
+                border-color: #6c63ff;
+            }
+            QLineEdit::placeholder {
+                color: #5a5e72;
             }
         """)
         input_layout.addWidget(self.input_edit, stretch=1)
 
-        self.btn_send = QPushButton("📤 发送")
-        self.btn_send.setFixedHeight(38)
+        self.btn_send = QPushButton("  📤  发送  ")
+        self.btn_send.setFixedHeight(40)
         self.btn_send.setStyleSheet("""
             QPushButton {
-                background-color: #3b82f6;
+                background-color: #6c63ff;
                 color: white;
                 border: none;
-                border-radius: 8px;
-                padding: 8px 20px;
+                border-radius: 10px;
+                padding: 8px 22px;
                 font-size: 14px;
                 font-weight: 600;
             }
             QPushButton:hover {
-                background-color: #2563eb;
+                background-color: #7c73ff;
+            }
+            QPushButton:pressed {
+                background-color: #5b52e8;
             }
             QPushButton:disabled {
-                background-color: #94a3b8;
+                background-color: #2a2e3d;
+                color: #5a5e72;
             }
         """)
         input_layout.addWidget(self.btn_send)
 
-        self.btn_stop = QPushButton("■")
-        self.btn_stop.setFixedSize(38, 38)
+        self.btn_stop = QPushButton("  ■  停止  ")
+        self.btn_stop.setFixedHeight(40)
         self.btn_stop.setToolTip("停止生成")
         self.btn_stop.setStyleSheet("""
             QPushButton {
                 background-color: #ef4444;
                 color: white;
                 border: none;
-                border-radius: 8px;
-                font-size: 16px;
+                border-radius: 10px;
+                padding: 8px 16px;
+                font-size: 13px;
+                font-weight: 600;
             }
             QPushButton:hover {
+                background-color: #f87171;
+            }
+            QPushButton:pressed {
                 background-color: #dc2626;
             }
         """)
@@ -148,22 +166,23 @@ class ChatPage(QWidget):
     def _show_welcome(self) -> None:
         """显示欢迎信息。"""
         self.browser.setHtml("""
-            <div style="text-align: center; padding: 40px 20px; color: #94a3b8;">
-                <h2 style="color: #1e293b; margin-bottom: 8px;">🧠 超级导师</h2>
-                <p>上传文档后即可开始提问</p>
-                <p style="font-size: 13px; margin-top: 20px;">
-                    支持 PDF · DOCX · Markdown · TXT
-                </p>
+            <div style="text-align: center; padding: 60px 20px; color: #5a5e72;">
+                <div style="font-size: 48px; margin-bottom: 16px;">🧠</div>
+                <h2 style="color: #e8eaf0; margin-bottom: 8px; font-weight: 600;">超级导师</h2>
+                <p style="font-size: 14px; margin-bottom: 24px;">上传文档后即可开始提问</p>
+                <div style="display: inline-block; background-color: #1e2231; border: 1px solid #2a2e3d; border-radius: 8px; padding: 8px 16px; font-size: 12px;">
+                    PDF · DOCX · Markdown · TXT
+                </div>
             </div>
         """)
 
     def add_user_message(self, text: str) -> None:
         """添加用户消息。"""
         self.browser.append(
-            f'<div style="margin: 8px 0; padding: 8px 12px; '
-            f'background-color: #eff6ff; border-radius: 8px; '
-            f'border-left: 3px solid #3b82f6;">'
-            f'<b style="color: #1e293b;">🧑 您</b><br>{text}</div>'
+            f'<div style="margin: 10px 0; padding: 10px 14px; '
+            f'background-color: #242838; border-radius: 10px; '
+            f'border-left: 3px solid #6c63ff;">'
+            f'<b style="color: #e8eaf0;">🧑 您</b><br><span style="color: #c8cad6;">{text}</span></div>'
         )
 
     def add_assistant_token(self, token: str) -> None:
@@ -176,7 +195,9 @@ class ChatPage(QWidget):
     def add_assistant_done(self, full_text: str) -> None:
         """助手回答完成，添加来源标注。"""
         self.browser.append(
-            f'<div style="margin: 4px 0; padding: 4px 0; '
-            f'font-size: 11px; color: #94a3b8;">'
+            f'<div style="margin: 6px 0; padding: 6px 10px; '
+            f'font-size: 11px; color: #5a5e72; '
+            f'background-color: #1e2231; border-radius: 6px; '
+            f'border: 1px solid #2a2e3d;">'
             f'[来源: 文档自动标注]</div>'
         )
