@@ -65,6 +65,12 @@ class ChatPage(QWidget):
         self.input_edit.returnPressed.connect(self._send)
         input_layout.addWidget(self.input_edit, stretch=1)
 
+        self.btn_plan = QPushButton("📅 计划")
+        self.btn_plan.setFixedSize(100, 42)
+        self.btn_plan.setStyleSheet("QPushButton { background-color: transparent; color: #ccff00; border: 1px solid #ccff00; border-radius: 8px; font-size: 11px; font-weight: 800; } QPushButton:hover { background-color: #ccff00; color: #050505; }")
+        self.btn_plan.clicked.connect(self._generate_plan)
+        input_layout.addWidget(self.btn_plan)
+
         self.btn_send = QPushButton("发送")
         self.btn_send.setFixedSize(100, 42)
         self.btn_send.setStyleSheet("QPushButton { background-color: #ccff00; color: #050505; border: none; border-radius: 8px; font-size: 12px; font-weight: 800; } QPushButton:hover { background-color: #d9ff33; }")
@@ -132,3 +138,47 @@ class ChatPage(QWidget):
 
     def _start_assistant(self):
         self.browser.append('<div style="margin:8px 0;color:#ccff00;font-size:10px;font-weight:700;">助 手</div>')
+
+    def _generate_plan(self):
+        """简单的计划生成：弹日期输入 → 调 LLM → 显示结果。"""
+        if self._agent is None:
+            return
+        from PySide6.QtWidgets import QInputDialog, QDialog, QVBoxLayout, QTextBrowser, QPushButton
+        days, ok = QInputDialog.getInt(self, "学习计划", "总天数：", 30, 1, 365)
+        if not ok:
+            return
+        hours, ok = QInputDialog.getInt(self, "学习计划", "每天学习（小时）：", 2, 1, 16)
+        if not ok:
+            return
+
+        self.btn_plan.setEnabled(False)
+        self.btn_plan.setText("生成中...")
+        self._add_user_msg(f"📅 请为我制定 {days} 天、每天 {hours} 小时的学习计划")
+        self._start_assistant()
+
+        class PlanThread(QThread):
+            done = Signal(str)
+            def __init__(self, agent, days, hours, course):
+                super().__init__()
+                self._agent = agent
+                self._days = days
+                self._hours = hours
+                self._course = course
+            def run(self):
+                try:
+                    r = self._agent.generate_plan(self._days, self._hours, self._course)
+                    self.done.emit(r)
+                except Exception as e:
+                    self.done.emit(f"生成失败：{e}")
+
+        self._plan_thread = PlanThread(self._agent, days, hours, self._course)
+        self._plan_thread.done.connect(self._on_plan_done)
+        self._plan_thread.start()
+
+    def _on_plan_done(self, text: str):
+        self.btn_plan.setEnabled(True)
+        self.btn_plan.setText("📅 计划")
+        import html
+        self.browser.append(f'<div style="margin:8px 0;padding:16px;background-color:#0a0a0c;border:1px solid #1f1f22;border-radius:8px;font-size:13px;line-height:1.7;white-space:pre-wrap;">{html.escape(text)}</div>')
+        sb = self.browser.verticalScrollBar()
+        sb.setValue(sb.maximum())
