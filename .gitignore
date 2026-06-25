@@ -33,3 +33,4 @@ crash.log
 .idea/
 *.swp
 *.swo
+app_output.log
