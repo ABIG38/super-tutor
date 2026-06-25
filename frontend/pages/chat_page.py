@@ -144,13 +144,18 @@ class ChatPage(QWidget):
         self.session_list.clear()
         sessions = list_sessions()
         if not sessions:
-            self._new_session()
+            # 静默创建默认会话，不弹输入框
+            session = new_session("会话 1")
+            item = QListWidgetItem(f"💬 {session['name']}")
+            item.setData(Qt.UserRole, session["id"])
+            self.session_list.addItem(item)
+            self.session_list.setCurrentItem(item)
+            self._switch_session(item)
             return
         for s in sessions:
             item = QListWidgetItem(f"💬 {s['name']}")
             item.setData(Qt.UserRole, s["id"])
             self.session_list.addItem(item)
-        # 选中第一个
         self.session_list.setCurrentRow(0)
         self._switch_session(self.session_list.item(0))
 
@@ -217,7 +222,12 @@ class ChatPage(QWidget):
             from backend.agent.orchestrator import SuperTutorAgent
             self._agent = SuperTutorAgent()
         if not self._current_session_id:
-            self._new_session()
+            s = new_session("会话 1")
+            item = QListWidgetItem(f"💬 {s['name']}")
+            item.setData(Qt.UserRole, s["id"])
+            self.session_list.addItem(item)
+            self.session_list.setCurrentItem(item)
+            self._switch_session(item)
 
         self.input_edit.setEnabled(False)
         self.btn_send.setEnabled(False)
