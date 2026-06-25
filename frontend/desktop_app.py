@@ -174,9 +174,8 @@ class SuperTutorWindow(QMainWindow):
         # ★ 修复 #2：创建后台工作线程（单例，所有页面共享）
         self.worker = BackgroundWorker()
 
-        # 模型下载线程（延迟初始化，启动检查时创建）
-        self._dl_thread: QThread | None = None
-        self._dl_worker = None
+        # 模型下载线程（启动检查时创建）
+        self._dl_thread = None
 
         self._setup_window()
         self._build_layout()
@@ -335,41 +334,31 @@ class SuperTutorWindow(QMainWindow):
         if reply != QMessageBox.Yes:
             return
 
-        # ★ 修复：使用 ModelDownloadWorker (QThread) 带进度
-        from backend.model_downloader import ModelDownloadWorker
+        # ★ 修复：使用 ModelDownloadThread (QThread 子类)
+        from backend.model_downloader import ModelDownloadThread
 
         self.status_label.setText("正在准备下载...")
 
-        self._dl_thread = QThread(self)
-        self._dl_worker = ModelDownloadWorker()
-        self._dl_worker.moveToThread(self._dl_thread)
-
-        # 信号连接
-        self._dl_worker.progress.connect(self._on_dl_progress)
-        self._dl_worker.done.connect(self._on_dl_done)
-        self._dl_worker.error.connect(self._on_dl_error)
-
-        # 启动
-        self._dl_thread.started.connect(
-            lambda: self._dl_worker.download(missing)
-        )
+        self._dl_thread = ModelDownloadThread(missing, self)
+        self._dl_thread.progress.connect(self._on_dl_progress)
+        self._dl_thread.model_done.connect(self._on_dl_done)
+        self._dl_thread.model_error.connect(self._on_dl_error)
+        self._dl_thread.all_done.connect(self._on_dl_all_done)
         self._dl_thread.finished.connect(self._dl_thread.deleteLater)
         self._dl_thread.start()
 
     def _on_dl_progress(self, prog) -> None:
-        """下载进度更新。"""
         self.status_label.setText(prog.label)
 
     def _on_dl_done(self, model_name: str) -> None:
-        """单个模型下载完成。"""
         logger.info("模型下载完成: {}", model_name)
 
     def _on_dl_error(self, model_name: str, reason: str) -> None:
-        """单个模型下载失败。"""
-        QMessageBox.warning(
-            self, "下载失败",
-            f"模型「{model_name}」下载失败:\n{reason}",
-        )
+        logger.warning("模型下载失败: {} — {}", model_name, reason)
+
+    def _on_dl_all_done(self) -> None:
+        self.status_label.setText("系统就绪")
+        QMessageBox.information(self, "✅", "模型下载完成，系统已就绪")
 
     def _apply_theme(self) -> None:
         self.setStyleSheet(f"""

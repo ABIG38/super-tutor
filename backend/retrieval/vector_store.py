@@ -1,3 +1,10 @@
+"""
+ChromaDB 向量库 — 延迟加载 Embedding 模型。
+
+修改: VectorStore 不再在 __init__ 时加载 embedding 模型，
+而是首次 add_chunks / search / delete 时再加载。
+避免应用启动时主线程卡死（~5-10秒模型加载时间）。
+"""
 from __future__ import annotations
 
 import os
@@ -10,11 +17,11 @@ from loguru import logger
 
 from backend.config import settings
 
+
 class VectorStore:
-    """ChromaDB Vector Store Wrapper — 使用中文 BGE Embedding。"""
-    
+    """ChromaDB Vector Store Wrapper — 延迟加载 Embedding 模型。"""
+
     def __init__(self, db_dir: str | None = None):
-        # ★ A5：使用 settings 中的中文模型 + 配置离线模式
         if settings.transformers_offline:
             os.environ["TRANSFORMERS_OFFLINE"] = "1"
             os.environ["HF_HUB_OFFLINE"] = "1"
@@ -28,9 +35,17 @@ class VectorStore:
         os.makedirs(db_dir, exist_ok=True)
 
         self.client = chromadb.PersistentClient(path=db_dir)
+        # ★ 延迟加载: 不在这里创建 embedding_fn/collection
+        # 首次 add/search/delete 时才初始化
+        self.embedding_fn = None
+        self.collection = None
+        logger.debug("VectorStore 初始化（延迟加载模式）")
 
-        # ★ 中文 Embedding: BAAI/bge-small-zh-v1.5
-        logger.info("加载 Embedding 模型: {}", settings.embedding_model)
+    def _ensure_loaded(self) -> None:
+        """★ 第一次使用时加载模型。"""
+        if self.collection is not None:
+            return
+        logger.info("延迟加载 Embedding 模型: {} ...", settings.embedding_model)
         self.embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
             model_name=settings.embedding_model,
         )
@@ -38,99 +53,96 @@ class VectorStore:
             name="supertutor_chunks",
             embedding_function=self.embedding_fn,
         )
+        logger.info("Embedding 模型加载完成")
+
+    # ── 写入 ────────────────────────────────────
 
     def add_chunks(self, chunks: List[Dict]) -> None:
-        """Add chunks to ChromaDB."""
+        self._ensure_loaded()
         if not chunks:
             return
-            
+
         ids = []
         documents = []
         metadatas = []
-        
+
         for chunk in chunks:
-            # metadata dict: course, filename, chunk_index, etc.
             meta = chunk["metadata"]
-            # Generate unique ID for each chunk
             chunk_id = f"{meta.get('filename', 'unknown')}_{meta.get('chunk_index', 0)}_{uuid.uuid4().hex[:8]}"
-            
-            # Ensure metadata values are scalar
             clean_meta = {}
             for k, v in meta.items():
-                if isinstance(v, (str, int, float, bool)):
-                    clean_meta[k] = v
-                else:
-                    clean_meta[k] = str(v)
-                    
+                clean_meta[k] = v if isinstance(v, (str, int, float, bool)) else str(v)
             ids.append(chunk_id)
             documents.append(chunk["content"])
             metadatas.append(clean_meta)
-            
-        # Add in batches to prevent payload limits
+
         batch_size = 100
         for i in range(0, len(ids), batch_size):
             self.collection.add(
-                ids=ids[i:i+batch_size],
-                documents=documents[i:i+batch_size],
-                metadatas=metadatas[i:i+batch_size]
+                ids=ids[i:i + batch_size],
+                documents=documents[i:i + batch_size],
+                metadatas=metadatas[i:i + batch_size],
             )
-            
-    def search(self, query: str, top_k: int = 5, filter_meta: Optional[Dict] = None) -> List[Dict]:
-        """Search vector database."""
+        logger.info("向量库写入 {} chunks", len(ids))
+
+    # ── 检索 ────────────────────────────────────
+
+    def search(
+        self, query: str, top_k: int = 5, filter_meta: Optional[Dict] = None,
+    ) -> List[Dict]:
+        self._ensure_loaded()
         where = filter_meta if filter_meta else None
-        
-        # Avoid crashing if collection is empty
+
         if self.collection.count() == 0:
             return []
-            
+
         results = self.collection.query(
             query_texts=[query],
             n_results=min(top_k, self.collection.count()),
-            where=where
+            where=where,
         )
-        
+
         chunks = []
         if results and results['documents'] and results['documents'][0]:
             docs = results['documents'][0]
             metas = results['metadatas'][0] if results['metadatas'] else [{}] * len(docs)
             distances = results['distances'][0] if results['distances'] else [0.0] * len(docs)
-            
+
             for doc, meta, dist in zip(docs, metas, distances):
-                # distance ranges from 0 to 2 usually (for cosine), lower is better. 
-                # convert to similarity score 0-1
                 score = 1.0 / (1.0 + dist)
                 chunks.append({
                     "content": doc,
                     "filename": meta.get("filename", ""),
                     "course": meta.get("course", ""),
                     "score": score,
-                    "metadata": meta
+                    "metadata": meta,
                 })
-                
+
         return chunks
 
-    def search_raw(self, query: str, top_k: int = 15, filter_meta: Optional[Dict] = None) -> List[Dict]:
-        """Search without thresholding (for planner)."""
+    def search_raw(
+        self, query: str, top_k: int = 15, filter_meta: Optional[Dict] = None,
+    ) -> List[Dict]:
         return self.search(query, top_k, filter_meta)
 
+    # ── 删除 ────────────────────────────────────
+
     def delete_by_source(self, filename: str) -> None:
-        """Delete all chunks originating from a specific file."""
+        self._ensure_loaded()
         self.collection.delete(where={"filename": filename})
 
     def update_filename_metadata(self, old_filename: str, new_filename: str) -> None:
-        """★ 修复 #8 配套：更新所有 chunk 的 filename metadata（重命名用）。
-
-        通过 ChromaDB 的 get + update API 原地修改 metadata，
-        不重建 embedding，避免重复计算。
-        """
+        self._ensure_loaded()
         try:
             existing = self.collection.get(where={"filename": old_filename})
             if not existing or not existing["ids"]:
                 logger.warning("update_filename: 未找到匹配 {} 的 chunk", old_filename)
                 return
             ids = existing["ids"]
-            self.collection.update(ids=ids, metadatas=[{"filename": new_filename}] * len(ids))
-            logger.info("已更新 {} 个 chunk 的 filename: {} → {}", len(ids), old_filename, new_filename)
+            self.collection.update(
+                ids=ids, metadatas=[{"filename": new_filename}] * len(ids),
+            )
+            logger.info("已更新 {} 个 chunk: {} → {}", len(ids), old_filename, new_filename)
         except Exception as e:
             logger.error("update_filename 失败: {}", e)
             raise
