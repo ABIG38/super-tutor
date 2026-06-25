@@ -167,42 +167,33 @@ class SuperTutorAgent:
     # ── 计划生成 ──────────────────────────────────
 
     def generate_plan(self, days: int = 30, hours: int = 2, course: str = "") -> str:
-        """让 AI 根据教材上下文生成复习计划。
-
-        不做 JSON 解析，直接返回 LLM 输出的 Markdown 文本。
-        """
-        import textwrap
-
-        # 检索教材内容作为上下文
-        chunks = self.vector_store.search("章节目录 重点 考点", top_k=20)
-        if not chunks:
-            # 如果没有找到，直接用全部 chunks
-            chunks = self.vector_store.search("", top_k=10, filter_meta={"course": course} if course else None)
+        """让 AI 根据教材上下文生成复习计划。"""
+        # 检索教材内容作为 chunks（让 CitationLLM 自动注入 <context>）
+        chunks = self.vector_store.search("章节目录 章节 重点", top_k=15, filter_meta={"course": course} if course else None)
         if not chunks:
             return "请先上传教材再生成计划。"
 
-        context = "\n\n".join(
-            f"[{c['filename']}] {c['content'][:500]}"
+        llm_chunks = [
+            ChunkForLLM(content=c.get("content",""), filename=c.get("filename",""), course=c.get("course",""))
             for c in chunks
+        ]
+
+        prompt = (
+            f"你是一位资深考研规划师。请根据上方<context>教材内容，"
+            f"为我制定一份 {days} 天的学习计划，每天学习 {hours} 小时。\n\n"
+            "要求：\n"
+            "1. 按天拆分，每天安排具体章节内容\n"
+            "2. 优先覆盖重点章节\n"
+            "3. Markdown 格式\n"
+            "4. 如果教材内容不足，说明缺少什么信息"
         )
 
-        prompt = textwrap.dedent(f"""\
-        你是一位资深考研/学业规划导师。请根据下方教材内容，制定一份 {days} 天学习计划，每天 {hours} 小时。
-
-        ## 要求
-        1. 计划必须基于下方教材内容中的章节和知识点。
-        2. 按「天」拆分，每天安排具体内容（如"第3章 栈和队列"）。
-        3. Markdown 格式，清晰易读。
-        4. 优先覆盖重点章节，合理分配时间。
-        5. 如果教材内容不足，请说明缺少什么。
-
-        ## 教材内容
-        {context[:6000]}
-        """)
-
-        from backend.llm.client import ChunkForLLM
-        return self.llm.generate_with_citation(
-            query=prompt,
-            chunks=[ChunkForLLM(content="", filename="plan_prompt", course="")],
-            timeout=120,
-        )
+        try:
+            from backend.llm.client import ChunkForLLM
+            result = self.llm.generate_with_citation(
+                query=prompt, chunks=llm_chunks, timeout=60,
+            )
+            return result
+        except Exception as e:
+            logger.error("计划生成失败: {}", e)
+            return f"计划生成失败：{e}"

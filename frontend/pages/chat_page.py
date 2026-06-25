@@ -290,7 +290,7 @@ class ChatPage(QWidget):
         self._start_assistant()
         self._current_answer = ""
 
-        class PlanThread(QThread):
+        class PlanThreadSafe(QThread):
             done = Signal(str)
             def __init__(self, agent, days, hours, course):
                 super().__init__()
@@ -300,13 +300,18 @@ class ChatPage(QWidget):
                 self._course = course
             def run(self):
                 try:
-                    self.done.emit(self._agent.generate_plan(self._days, self._hours, self._course))
+                    r = self._agent.generate_plan(self._days, self._hours, self._course)
+                    if r:
+                        self.done.emit(r)
+                    else:
+                        self.done.emit("AI 返回为空，请重试")
                 except Exception as e:
                     self.done.emit(f"生成失败：{e}")
 
-        t = PlanThread(self._agent, days, hours, self._course)
-        t.done.connect(self._on_plan_done)
-        t.start()
+        self._plan_thread = PlanThreadSafe(self._agent, days, hours, self._course)
+        self._plan_thread.done.connect(self._on_plan_done)
+        self._plan_thread.finished.connect(lambda: setattr(self, '_plan_thread', None))
+        self._plan_thread.start()
 
     def _on_plan_done(self, text: str):
         self.btn_plan.setEnabled(True)
