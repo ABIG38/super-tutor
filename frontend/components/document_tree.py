@@ -71,12 +71,25 @@ class DocumentTree(QWidget):
             item = QTreeWidgetItem(self.tree, ["📚 暂无文档"])
             item.setFlags(item.flags() & ~Qt.ItemIsSelectable)
             return
-        group = QTreeWidgetItem(self.tree, ["▪ 文档"])
-        group.setExpanded(True)
-        group.setFlags(group.flags() & ~Qt.ItemIsSelectable)
+        # 按 doc_type 分组
+        groups = {"textbook": "▪ 教材", "past_paper": "▪ 真题"}
+        grouped = {k: [] for k in groups}
         for d in docs:
-            item = QTreeWidgetItem(group, [f"  {d['filename']}"])
-            item.setData(0, Qt.UserRole, d["filename"])
+            t = d.get("doc_type", "textbook")
+            if t in grouped:
+                grouped[t].append(d)
+            else:
+                grouped["textbook"].append(d)
+        for key, label in groups.items():
+            items = grouped.get(key, [])
+            if not items:
+                continue
+            group = QTreeWidgetItem(self.tree, [label])
+            group.setExpanded(True)
+            group.setFlags(group.flags() & ~Qt.ItemIsSelectable)
+            for d in items:
+                item = QTreeWidgetItem(group, [f"  {d['filename']}"])
+                item.setData(0, Qt.UserRole, d["filename"])
         self.tree.expandAll()
 
     def _context_menu(self, pos):

@@ -181,6 +181,9 @@ class SuperTutorWindow(QMainWindow):
 
     def _on_course_change(self, name: str):
         self.chat_page.set_course(name)
+        self.doc_tree._course = name
+        self.doc_tree._refresh()
+        self._status.setText(f"当前: {name}")
 # ── 启动 ────────────────────────────────────
 
 def main() -> None:
