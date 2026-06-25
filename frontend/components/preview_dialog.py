@@ -85,11 +85,23 @@ class DocumentPreviewDialog(QDialog):
                 "如需识别文字，请使用 OCR 软件处理后重新上传。"
             )
         else:
-            # 纯文本显示（比 setMarkdown 更完整，不丢失内容）
+            # Markdown → HTML 渲染
             content = text[:100_000]
             if len(text) > 100_000:
                 content += f"\n\n... (仅显示前 100,000 字符，全文共 {len(text):,} 字符)"
-            self.browser.setPlainText(content)
+            try:
+                import markdown
+                html = markdown.markdown(
+                    content,
+                    extensions=["extra", "tables", "fenced_code", "codehilite"],
+                )
+                styled = f"""<html><body style="background:#0a0a0c;color:#e8eaf0;
+                    font-size:14px;line-height:1.8;padding:20px;
+                    font-family:'Segoe UI','PingFang SC',sans-serif;">
+                    {html}</body></html>"""
+                self.browser.setHtml(styled)
+            except ImportError:
+                self.browser.setPlainText(content)
         layout.addWidget(self.browser, stretch=1)
 
         # 底部提示
