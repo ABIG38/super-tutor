@@ -16,20 +16,11 @@ from pathlib import Path
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, QRect
 from PySide6.QtGui import QFont, QIcon, QAction, QPixmap, QPainter, QColor, QLinearGradient, QBrush, QPen
 from PySide6.QtWidgets import (
-    QApplication,
-    QMainWindow,
-    QWidget,
-    QHBoxLayout,
-    QVBoxLayout,
-    QSplitter,
-    QTabWidget,
-    QStatusBar,
-    QPushButton,
-    QLabel,
-    QFrame,
-    QGraphicsDropShadowEffect,
-    QSizePolicy,
+    QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
+    QSplitter, QTabWidget, QPushButton, QLabel, QFrame,
+    QGraphicsDropShadowEffect, QMessageBox,
 )
+from loguru import logger
 
 from frontend.components.course_selector import CourseSelector
 from frontend.components.document_tree import DocumentTree
@@ -188,6 +179,10 @@ class SuperTutorWindow(QMainWindow):
         self._apply_theme()
         self._wire_signals()
 
+        # ★ D3：启动后检查（延迟到事件循环就绪）
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(300, self._startup_check)
+
     def _setup_window(self) -> None:
         self.setWindowTitle("SuperTutor")
         self.setMinimumSize(1200, 800)
@@ -290,6 +285,63 @@ class SuperTutorWindow(QMainWindow):
 
     def _current_course(self) -> str:
         return self.title_bar.course_selector.current_course
+
+    # ── D3: 启动检查 ──────────────────────────────────
+
+    def _startup_check(self) -> None:
+        """★ D3：启动时检查配置 + 模型，必要时弹引导对话框。"""
+        from backend.config import settings as cfg
+        from backend.model_checker import check_models, download_all_missing
+        from pathlib import Path
+
+        issues: list[str] = []
+
+        # 1. 检查 .env / API Key
+        env_path = Path(".env")
+        if not env_path.exists() or cfg.llm_api_key == "MISSING_KEY":
+            issues.append("API Key 未配置")
+            reply = QMessageBox.question(
+                self, "⚙️ 首次配置",
+                "未检测到 API Key 配置。\n\n是否现在打开设置进行配置？",
+                QMessageBox.Yes | QMessageBox.No,
+            )
+            if reply == QMessageBox.Yes:
+                from frontend.components.settings_dialog import SettingsDialog
+                SettingsDialog(self).exec()
+
+        # 2. 检查模型文件
+        try:
+            model_result = check_models()
+            if not model_result.all_ok:
+                missing_text = ", ".join(model_result.missing + model_result.corrupted)
+                issues.append(f"模型缺失: {missing_text}")
+                reply = QMessageBox.question(
+                    self, "🤖 模型缺失",
+                    f"缺少以下 AI 模型文件:\n{missing_text}\n\n"
+                    "模型约需 1.2GB 空间，是否立即下载？\n（也可稍后在设置中下载）",
+                    QMessageBox.Yes | QMessageBox.No,
+                )
+                if reply == QMessageBox.Yes:
+                    self.status_label.setText("正在下载模型文件...")
+                    outcomes = download_all_missing(model_result)
+                    success = [n for n, ok in outcomes.items() if ok]
+                    failed = [n for n, ok in outcomes.items() if not ok]
+                    if success:
+                        self.status_label.setText(f"模型下载完成: {', '.join(success)}")
+                    if failed:
+                        QMessageBox.warning(
+                            self, "下载失败",
+                            f"以下模型下载失败:\n{', '.join(failed)}\n\n"
+                            "部分功能可能不可用，可稍后在设置中重试。",
+                        )
+                    else:
+                        self.status_label.setText("系统就绪")
+        except Exception as e:
+            logger.warning("模型检测跳过: {}", e)
+            self.status_label.setText("模型检测跳过（离线模式）")
+
+        if not issues:
+            self.status_label.setText("系统就绪")
 
     def _apply_theme(self) -> None:
         self.setStyleSheet(f"""

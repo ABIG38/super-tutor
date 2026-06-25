@@ -99,10 +99,23 @@ class SuperTutorAgent:
                 "doc_type": doc.doc_type,
             })
 
-            self.vector_store.add_chunks(chunks)
+            # ★ D1: 分步写入 + 失败回滚
+            chroma_ok = False
+            try:
+                self.vector_store.add_chunks(chunks)
+                chroma_ok = True
 
-            # ★ B4: 同步 BM25 索引
-            self.hybrid.sync_chunks(chunks)
+                self.hybrid.sync_chunks(chunks)
+
+            except Exception:
+                # 回滚 ChromaDB（如果已写入）
+                if chroma_ok:
+                    logger.warning("BM25 同步失败，回滚 ChromaDB chunks for {}", filename)
+                    try:
+                        self.vector_store.delete_by_source(filename)
+                    except Exception as rollback_err:
+                        logger.error("回滚 ChromaDB 失败: {}", rollback_err)
+                raise
 
             # 记录来源
             self._sources[filename] = {
