@@ -85,12 +85,11 @@ class DocumentPreviewDialog(QDialog):
                 "如需识别文字，请使用 OCR 软件处理后重新上传。"
             )
         else:
-            import html as html_mod
-            # Markdown 渲染（QTextBrowser 支持 setMarkdown）
+            # 纯文本显示（比 setMarkdown 更完整，不丢失内容）
             content = text[:100_000]
             if len(text) > 100_000:
                 content += f"\n\n... (仅显示前 100,000 字符，全文共 {len(text):,} 字符)"
-            self.browser.setMarkdown(content)
+            self.browser.setPlainText(content)
         layout.addWidget(self.browser, stretch=1)
 
         # 底部提示
