@@ -189,7 +189,6 @@ class SuperTutorAgent:
         )
 
         try:
-            from backend.llm.client import ChunkForLLM
             result = self.llm.generate_with_citation(
                 query=prompt, chunks=llm_chunks, timeout=60,
             )
