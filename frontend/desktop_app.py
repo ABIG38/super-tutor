@@ -161,10 +161,22 @@ class SuperTutorWindow(QMainWindow):
 
     def _startup_check(self):
         from pathlib import Path
+        from backend.model_checker import check_models
         cfg = __import__("backend.config", fromlist=["settings"]).settings
+
+        # 1. API Key
         if not Path(".env").exists() or cfg.llm_api_key == "MISSING_KEY":
             QMessageBox.question(self, "⚙️ 首次配置", "未检测到 API Key。是否现在配置？", QMessageBox.Yes) and \
                 SettingsDialog(self).exec()
+
+        # 2. 模型检测
+        try:
+            model_status = check_models()
+            if not model_status.get("embedding"):
+                self._status.setText("⚠️ Embedding 模型未下载，请运行 python -m sentence_transformers -i BAAI/bge-small-zh-v1.5")
+        except Exception:
+            pass
+
         self._status.setText("系统就绪")
 
     def _on_course_change(self, name: str):

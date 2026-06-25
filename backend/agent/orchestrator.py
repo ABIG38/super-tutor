@@ -15,6 +15,7 @@ from backend.config import settings
 from backend.document.parser import DocumentParser
 from backend.document.splitter import chunk_document
 from backend.retrieval.vector_store import VectorStore
+from backend.retrieval.bm25_search import BM25Searcher
 from backend.llm.client import CitationLLM, ChunkForLLM
 
 
@@ -37,6 +38,7 @@ class SuperTutorAgent:
 
         self.parser = DocumentParser()
         self.vector_store = VectorStore()
+        self.bm25 = BM25Searcher()
 
         api_key = settings.llm_api_key if settings.llm_api_key != "MISSING_KEY" else __import__("os").environ.get("OPENAI_API_KEY", "")
         self.llm = CitationLLM(
@@ -73,6 +75,7 @@ class SuperTutorAgent:
                 return {"ok": False, "reason": "scanned_pdf", "filename": fn}
             chunks = chunk_document(doc.text, {"filename": doc.filename, "course": course})
             self.vector_store.add_chunks(chunks)
+            self.bm25.add_chunks(chunks)  # ★ F-09: 同步 BM25
             self._sources[fn] = {"doc_type": doc.doc_type, "course": course}
             return {"ok": True, "chunk_count": len(chunks), "filename": fn}
         except (FileNotFoundError, ValueError, PermissionError) as e:
@@ -105,13 +108,29 @@ class SuperTutorAgent:
             yield "知识库为空，请先上传文档。"
             return
         filter_meta = {"course": course} if course else None
-        chunks = self.vector_store.search(query, top_k=7, filter_meta=filter_meta)
-        if not chunks:
+        # ★ F-09: 混合检索 — 向量 + BM25
+        vec_chunks = self.vector_store.search(query, top_k=5, filter_meta=filter_meta)
+        bm25_chunks = self.bm25.search(query, top_k=5)
+        # 补齐 BM25 结果的 content
+        for b in bm25_chunks:
+            for v in vec_chunks:
+                if b.get("filename") == v.get("filename"):
+                    b["content"] = v.get("content", "")
+                    break
+        # 融合：去重合并
+        seen = set()
+        all_chunks = []
+        for c in vec_chunks + bm25_chunks:
+            key = c.get("content", "")[:80]
+            if key and key not in seen:
+                seen.add(key)
+                all_chunks.append(c)
+        if not all_chunks:
             yield "未在上传文档中找到相关答案，请检查文档内容或更换提问方式。"
             return
         llm_chunks = [
-            ChunkForLLM(content=c["content"], filename=c["filename"], course=c.get("course", ""), score=c.get("score", 0))
-            for c in chunks
+            ChunkForLLM(content=c.get("content",""), filename=c.get("filename",""), course=c.get("course",""), score=c.get("score",0))
+            for c in all_chunks[:7]
         ]
         for token in self.llm.generate_with_citation_stream(query, llm_chunks):
             yield token
