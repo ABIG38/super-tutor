@@ -166,14 +166,15 @@ class SuperTutorAgent:
 
     # ── 计划生成 ──────────────────────────────────
 
+    PLANS_DIR = Path("knowledge_base/index/plans")
+
     def generate_plan(self, days: int = 30, hours: int = 2, course: str = "") -> str:
-        """让 AI 根据教材上下文生成复习计划。"""
-        # 检索教材内容作为 chunks（让 CitationLLM 自动注入 <context>）
+        """让 AI 根据文档内容生成计划，并自动保存到知识库。"""
         chunks = self.vector_store.search("目录 内容 结构 重点", top_k=15, filter_meta={"course": course} if course else None)
         if not chunks:
             chunks = self.vector_store.search("", top_k=10, filter_meta={"course": course} if course else None)
         if not chunks:
-            return "请先上传教材再生成计划。"
+            return "请先上传文档再生成计划。"
 
         llm_chunks = [
             ChunkForLLM(content=c.get("content",""), filename=c.get("filename",""), course=c.get("course",""))
@@ -195,7 +196,42 @@ class SuperTutorAgent:
             result = self.llm.generate_with_citation(
                 query=prompt, chunks=llm_chunks, timeout=60,
             )
+            # 保存到知识库
+            self._save_plan(result, days, hours)
             return result
         except Exception as e:
             logger.error("计划生成失败: {}", e)
             return f"计划生成失败：{e}"
+
+    def _save_plan(self, content: str, days: int, hours: int) -> str:
+        """保存计划到 knowledge_base/index/plans/。"""
+        from datetime import datetime
+        self.PLANS_DIR.mkdir(parents=True, exist_ok=True)
+        filename = f"plan_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{days}d_{hours}h.md"
+        path = self.PLANS_DIR / filename
+        path.write_text(f"# 学习计划 ({days}天, 每天{hours}小时)\n\n{content}", encoding="utf-8")
+        logger.info("计划已保存: {}", path)
+        return str(path)
+
+    def get_plans(self) -> List[Dict]:
+        """返回已保存的计划列表。"""
+        if not self.PLANS_DIR.exists():
+            return []
+        plans = []
+        for f in sorted(self.PLANS_DIR.glob("*.md"), reverse=True):
+            size = len(f.read_text("utf-8"))
+            name = f.stem  # plan_20260109_120000_30d_2h
+            plans.append({
+                "filename": f.name,
+                "display_name": name,
+                "file_path": str(f),
+                "size": size,
+            })
+        return plans
+
+    def get_plan_content(self, filename: str) -> str:
+        """读取计划文件内容。"""
+        path = self.PLANS_DIR / filename
+        if path.exists():
+            return path.read_text("utf-8")
+        return ""

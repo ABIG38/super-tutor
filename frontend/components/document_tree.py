@@ -67,19 +67,12 @@ class DocumentTree(QWidget):
     def _refresh(self):
         self.tree.clear()
         docs = self._agent.get_documents(self._course)
-        if not docs:
-            item = QTreeWidgetItem(self.tree, ["📚 暂无文档"])
-            item.setFlags(item.flags() & ~Qt.ItemIsSelectable)
-            return
-        # 按 doc_type 分组
+        # 分组
         groups = {"textbook": "▪ 教材", "past_paper": "▪ 真题"}
         grouped = {k: [] for k in groups}
         for d in docs:
             t = d.get("doc_type", "textbook")
-            if t in grouped:
-                grouped[t].append(d)
-            else:
-                grouped["textbook"].append(d)
+            grouped.get(t, grouped["textbook"]).append(d)
         for key, label in groups.items():
             items = grouped.get(key, [])
             if not items:
@@ -90,6 +83,18 @@ class DocumentTree(QWidget):
             for d in items:
                 item = QTreeWidgetItem(group, [f"  {d['filename']}"])
                 item.setData(0, Qt.UserRole, d["filename"])
+        # 计划
+        plans = self._agent.get_plans()
+        if plans:
+            plan_group = QTreeWidgetItem(self.tree, ["📋 计划"])
+            plan_group.setExpanded(True)
+            plan_group.setFlags(plan_group.flags() & ~Qt.ItemIsSelectable)
+            for p in plans:
+                item = QTreeWidgetItem(plan_group, [f"  {p['display_name']}"])
+                item.setData(0, Qt.UserRole, f"__plan__:{p['filename']}")
+        if not docs and not plans:
+            item = QTreeWidgetItem(self.tree, ["📚 暂无文档"])
+            item.setFlags(item.flags() & ~Qt.ItemIsSelectable)
         self.tree.expandAll()
 
     def _context_menu(self, pos):
@@ -102,6 +107,40 @@ class DocumentTree(QWidget):
         menu = QMenu(self)
         delete = menu.addAction("🗑️ 删除")
         if menu.exec(self.tree.viewport().mapToGlobal(pos)) == delete:
-            if QMessageBox.question(self, "确认", f"删除「{fn}」？", QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
-                self._agent.delete_document(fn)
-                self._refresh()
+            if fn.startswith("__plan__:"):
+                # 删除计划文件
+                pfn = fn.split(":", 1)[1]
+                path = self._agent.PLANS_DIR / pfn
+                if path.exists():
+                    path.unlink()
+            else:
+                if QMessageBox.question(self, "确认", f"删除「{fn}」？", QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
+                    self._agent.delete_document(fn)
+            self._refresh()
+
+    def mouseDoubleClickEvent(self, event):
+        item = self.tree.currentItem()
+        if not item or not item.parent():
+            return
+        fn = item.data(0, Qt.UserRole)
+        if not fn:
+            return
+        if fn.startswith("__plan__:"):
+            pfn = fn.split(":", 1)[1]
+            content = self._agent.get_plan_content(pfn)
+            if content:
+                from frontend.components.preview_dialog import DocumentPreviewDialog
+                dialog = DocumentPreviewDialog(title=pfn, text=content, size=len(content), parent=self)
+                dialog.exec()
+        elif self._agent._sources.get(fn):
+            result = self._agent.preview_document(fn)
+            if result.get("ok"):
+                from frontend.components.preview_dialog import DocumentPreviewDialog
+                dialog = DocumentPreviewDialog(
+                    title=result.get("filename", fn),
+                    text=result.get("text", ""),
+                    size=result.get("size", 0),
+                    scanned=result.get("scanned", False),
+                    parent=self,
+                )
+                dialog.exec()
