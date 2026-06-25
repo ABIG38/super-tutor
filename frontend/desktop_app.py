@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QSplitter, QTabWidget, QPushButton, QLabel, QFrame,
     QGraphicsDropShadowEffect, QMessageBox,
 )
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QColor
 
 from backend.agent.orchestrator import SuperTutorAgent
 from backend.llm.client import LLMError
@@ -169,4 +169,17 @@ class SuperTutorWindow(QMainWindow):
 
     def _on_course_change(self, name: str):
         self.chat_page.set_course(name)
-        self._status.setText(f"当前: {name}")
+# ── 启动 ────────────────────────────────────
+
+def main() -> None:
+    app = QApplication(sys.argv)
+    font = QFont()
+    font.setFamilies(["Segoe UI", "PingFang SC", "Microsoft YaHei"])
+    font.setPointSize(10)
+    app.setFont(font)
+    window = SuperTutorWindow()
+    window.show()
+    sys.exit(app.exec())
+
+if __name__ == "__main__":
+    main()

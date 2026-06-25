@@ -22,18 +22,9 @@ class VectorStore:
     """ChromaDB Vector Store Wrapper — 延迟加载 Embedding 模型。"""
 
     def __init__(self, db_dir: str | None = None):
-        if settings.transformers_offline:
-            os.environ["TRANSFORMERS_OFFLINE"] = "1"
-            os.environ["HF_HUB_OFFLINE"] = "1"
-        if settings.hf_home:
-            os.environ["HF_HOME"] = settings.hf_home
-        else:
-            os.environ.setdefault("HF_HOME", str(settings.models_dir))
-
         if db_dir is None:
             db_dir = str(settings.chroma_dir)
         os.makedirs(db_dir, exist_ok=True)
-
         self.client = chromadb.PersistentClient(path=db_dir)
         # ★ 延迟加载: 不在这里创建 embedding_fn/collection
         # 首次 add/search/delete 时才初始化
