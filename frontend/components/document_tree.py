@@ -20,11 +20,13 @@ class DocumentTree(QWidget):
         super().__init__(parent)
         self._worker = None
         self._course = ""
+        self._pending_uploads: list[str] = []  # ★ 修复 #2：上传队列
         self._setup_ui()
 
     def set_worker(self, worker) -> None:
-        """★ 注入后台 worker。"""
+        """★ 注入后台 worker 并连接信号。"""
         self._worker = worker
+        self._worker.ingest_done.connect(self._on_ingest_done)
 
     def set_course(self, course: str) -> None:
         self._course = course
@@ -94,31 +96,60 @@ class DocumentTree(QWidget):
             self, "选择文档", "",
             "文档 (*.pdf *.docx *.md *.txt);;所有文件 (*)",
         )
-        for f in files:
-            path = Path(f)
-            result = self._worker.agent.ingest_document(
-                str(path),
-                doc_type="textbook",
-                course=self._course,
+        if not files:
+            return
+
+        # ★ 修复 #2：逐个异步上传，不阻塞 UI
+        self._pending_uploads = list(files)
+        self._process_next_upload()
+
+    def _process_next_upload(self) -> None:
+        """处理上传队列中的下一个文件。"""
+        if not self._pending_uploads:
+            self.refresh(self._course)
+            return
+
+        file_path = self._pending_uploads.pop(0)
+        path = Path(file_path)
+
+        # 快速同步检查：重复检测（仅 dict 查找，<1ms）
+        agent = self._worker.agent
+        if path.name in agent._sources:
+            confirm = QMessageBox.question(
+                self, "重复文档",
+                f"「{path.name}」已存在，是否覆盖？",
+                QMessageBox.Yes | QMessageBox.No,
             )
-            if result.get("ok"):
+            if confirm == QMessageBox.Yes:
+                agent.overwrite_document(str(path), doc_type="textbook", course=self._course)
                 self.refresh(self._course)
-            elif result.get("reason") == "duplicate":
-                confirm = QMessageBox.question(
-                    self, "重复文档",
-                    f"「{path.name}」已存在，是否覆盖？",
-                    QMessageBox.Yes | QMessageBox.No,
-                )
-                if confirm == QMessageBox.Yes:
-                    self._worker.agent.overwrite_document(
-                        str(path), doc_type="textbook", course=self._course,
-                    )
-                    self.refresh(self._course)
-            else:
-                QMessageBox.warning(
-                    self, "索引失败",
-                    f"「{path.name}」: {result.get('reason', '未知错误')}",
-                )
+            self._process_next_upload()
+            return
+
+        # 异步索引（QThread，不阻塞 UI）
+        self._worker.ingest_async(str(path), doc_type="textbook", course=self._course)
+
+    def _on_ingest_done(self, result: dict) -> None:
+        """异步索引完成回调。"""
+        if result.get("ok"):
+            self.refresh(self._course)
+        else:
+            reason = result.get("reason", "未知错误")
+            friendly = self._friendly_error(reason)
+            QMessageBox.warning(self, "索引失败", f"「{result.get('filename', '')}」: {friendly}")
+        # 继续处理队列
+        self._process_next_upload()
+
+    @staticmethod
+    def _friendly_error(reason: str) -> str:
+        _map = {
+            "scanned_pdf": "该 PDF 为扫描件，未检测到文字内容",
+            "encrypted_pdf": "PDF 已加密，请输入密码后重试",
+            "file_too_large": "文件过大，请上传 200MB 以内的文件",
+            "unsupported_format": "不支持的文件格式",
+            "disk_full": "磁盘空间不足，请清理后重试",
+        }
+        return _map.get(reason, reason)
 
     def _show_context_menu(self, pos) -> None:
         item = self.tree.itemAt(pos)

@@ -126,14 +126,14 @@ class HybridSearcher:
         content_map: Dict[str, Dict] = {}
 
         for rank, item in enumerate(vector):
-            key = item.get("content", "")[:80]  # 用内容前缀作 key
+            # ★ 修复 #3：用唯一 ID 替代 content[:80] 避免碰撞
+            meta = item.get("metadata", {})
+            key = f"{meta.get('filename', '')}_{meta.get('chunk_index', rank)}"
             rrf_scores[key] = rrf_scores.get(key, 0.0) + 1.0 / (settings.rrf_k + rank)
             content_map[key] = item
 
         for rank, item in enumerate(bm25):
-            key = item.get("content", "")[:80]
-            if not key:  # BM25 可能没有 content
-                key = item.get("_id", f"bm25_{rank}")
+            key = item.get("_id", f"bm25_{rank}")
             rrf_scores[key] = rrf_scores.get(key, 0.0) + 1.0 / (settings.rrf_k + rank)
             if key not in content_map:
                 content_map[key] = item

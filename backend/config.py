@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
@@ -20,9 +21,19 @@ class Settings(BaseSettings):
 
     # ── LLM ───────────────────────────────────────
 
-    llm_api_key: str  # 必填 — API Key
-    llm_api_base: str = "https://api.deepseek.com/v1"
-    llm_model: str = "deepseek-chat"
+    llm_api_key: str = Field(
+        default="MISSING_KEY",
+        validation_alias="OPENAI_API_KEY",
+        description="必填 — API Key",
+    )
+    llm_api_base: str = Field(
+        default="https://api.deepseek.com/v1",
+        validation_alias="OPENAI_BASE_URL",
+    )
+    llm_model: str = Field(
+        default="deepseek-chat",
+        validation_alias="OPENAI_MODEL",
+    )
 
     # ── Embedding / Reranker ─────────────────────
 
@@ -105,15 +116,12 @@ class Settings(BaseSettings):
 
 # ── 全局单例 ──────────────────────────────────────────
 
-# 实例化时自动从 .env 加载，缺失 llm_api_key 会抛 ValidationError
-try:
-    settings = Settings()
-except Exception as e:
-    # 允许启动（UI 层会检查并引导配置），但打印警告
+settings = Settings()
+
+# 启动时检查 API Key
+if settings.llm_api_key == "MISSING_KEY":
     import sys
-    print(f"[config] 配置加载警告: {e}", file=sys.stderr)
-    # 用占位值创建实例以便应用能启动到设置界面
-    settings = Settings(llm_api_key="MISSING_KEY")
+    print("[config] 注意: OPENAI_API_KEY 未设置，启动后将引导配置", file=sys.stderr)
 
 
 # ── 日志初始化 ────────────────────────────────────────
