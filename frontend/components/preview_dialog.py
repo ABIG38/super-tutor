@@ -85,16 +85,16 @@ class DocumentPreviewDialog(QDialog):
                 "如需识别文字，请使用 OCR 软件处理后重新上传。"
             )
         else:
-            # 显示纯文本（保留换行和缩进）
-            self.browser.setPlainText(text[:100_000])  # 截断防止卡 UI
+            import html as html_mod
+            # Markdown 渲染（QTextBrowser 支持 setMarkdown）
+            content = text[:100_000]
             if len(text) > 100_000:
-                self.browser.append(
-                    f"\n\n... (仅显示前 100,000 字符，全文共 {len(text):,} 字符)"
-                )
+                content += f"\n\n... (仅显示前 100,000 字符，全文共 {len(text):,} 字符)"
+            self.browser.setMarkdown(content)
         layout.addWidget(self.browser, stretch=1)
 
         # 底部提示
-        hint = QLabel("💡 仅显示解析后的纯文本，图片/公式/图表未渲染")
+        hint = QLabel("💡 仅显示解析后的文本，图片/公式/图表未渲染")
         hint.setStyleSheet(
             "color: #55555a; font-size: 9px; font-weight: 600; letter-spacing: 0.5px;"
         )
