@@ -83,9 +83,18 @@ class HybridSearcher:
         # ── 4. MD5 去重 ──
         merged = self._deduplicate(merged)
 
-        # ── 5. 阈值过滤 ──
-        if not merged or merged[0].get("rrf_score", 0) < settings.score_threshold:
-            logger.info("检索分数低于阈值 {:.3f}，返回空", settings.score_threshold)
+        # ── 5. 阈值过滤（★ 用原始向量分数而非 RRF 分数）
+        if not merged:
+            logger.info("检索结果为空")
+            return []
+
+        # 用 vector similarity score 检查是否真的有匹配（RRF 分数范围 ~0-0.03 不能直接比）
+        best_vector_score = max((v.get("score", 0) for v in vector_results), default=0.0)
+        if best_vector_score < settings.score_threshold and not bm25_results:
+            logger.info(
+                "向量评分 {:.3f} 低于阈值且 BM25 无结果，返回空",
+                best_vector_score,
+            )
             return []
 
         return merged[:top_k]
