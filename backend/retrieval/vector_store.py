@@ -119,11 +119,6 @@ class VectorStore:
 
         return chunks
 
-    def search_raw(
-        self, query: str, top_k: int = 15, filter_meta: Optional[Dict] = None,
-    ) -> List[Dict]:
-        return self.search(query, top_k, filter_meta)
-
     # ── 删除 ────────────────────────────────────
 
     def delete_by_source(self, filename: str) -> None:

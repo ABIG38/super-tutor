@@ -318,94 +318,9 @@ class SuperTutorAgent:
     def cancel_stream(self) -> None:
         self.llm.cancel_stream()
 
-    # ── 会话管理 ──────────────────────────────────
-
-    def chat_new(self, name: str = "") -> Dict:
-        import backend.chat_store as cs
-        return cs.new_session(name)
-
-    def chat_list(self) -> List[Dict]:
-        import backend.chat_store as cs
-        return cs.list_sessions()
-
-    def chat_delete(self, session_id: str) -> None:
-        import backend.chat_store as cs
-        cs.delete_session(session_id)
-
-    def chat_rename(self, session_id: str, name: str) -> None:
-        import backend.chat_store as cs
-        cs.rename_session(session_id, name)
-
-    def chat_clear(self, session_id: str) -> None:
-        import backend.chat_store as cs
-        cs.clear_messages(session_id)
-
-    def chat_messages(self, session_id: str) -> List[Dict]:
-        import backend.chat_store as cs
-        return cs.load_messages(session_id)
-
-    def chat_append(self, session_id: str, role: str, content: str) -> None:
-        import backend.chat_store as cs
-        cs.append_message(session_id, role, content)
-
     # ── 计划生成 ──────────────────────────────────
 
     PLANS_DIR = Path("knowledge_base/index/plans")
-
-    def generate_plan(self, days: int = 30, hours: int = 2, start_chapter: str = "", end_chapter: str = "", course: str = "") -> str:
-        """让 AI 根据文档内容生成计划，并自动保存到知识库。"""
-        # ★ F-12: 必须有包含目录的教材
-        textbooks = [d["filename"] for d in self.get_documents(course) if d.get("doc_type") == "textbook"]
-        if not textbooks:
-            return "请先上传含目录的教材。"
-
-        if len(textbooks) == 1:
-            filter_meta = {"filename": textbooks[0]}
-        else:
-            filter_meta = {"filename": {"$in": textbooks}}
-
-        chunks = self.vector_store.search("目录 内容 结构 重点", top_k=15, filter_meta=filter_meta)
-        if not chunks:
-            chunks = self.vector_store.search("", top_k=10, filter_meta=filter_meta)
-        if not chunks:
-            return "未能从教材中提取到内容，无法生成计划。"
-
-        llm_chunks = [
-            ChunkForLLM(content=c.get("content",""), filename=c.get("filename",""), course=c.get("course",""))
-            for c in chunks
-        ]
-
-        prompt = (
-            f"你是一位学习规划助手。请根据上方<context>提供的教材内容，"
-            f"为用户制定一份 {days} 天的学习/阅读计划，每天学习 {hours} 小时。\n\n"
-        )
-        if start_chapter and end_chapter:
-            prompt += f"【重要指示】用户要求计划范围从“{start_chapter}”开始，到“{end_chapter}”结束，请严格在此范围内安排学习计划。\n\n"
-        elif start_chapter:
-            prompt += f"【重要指示】用户要求从“{start_chapter}”开始复习，请从匹配到该章节的内容开始向后安排计划。\n\n"
-        elif end_chapter:
-            prompt += f"【重要指示】用户要求复习到“{end_chapter}”为止，请合理安排在这个章节之前的内容。\n\n"
-
-        prompt += (
-            "要求：\n"
-            "1. 严格使用 `### 第X天` 作为每天的标题格式，例如 `### 第1天`\n"
-            "2. 按天拆分，每天安排具体内容\n"
-            "3. 如果资料中有明确章节/模块结构，按结构拆分\n"
-            "4. 如果资料是项目文档/非教材，按主题或知识点合理分配天数\n"
-            "5. Markdown 格式\n"
-            "6. 如果内容不足以覆盖所有天数，说明是按什么依据排期的"
-        )
-
-        try:
-            result = self.llm.generate_with_citation(
-                query=prompt, chunks=llm_chunks, timeout=60,
-            )
-            # 保存到知识库
-            self._save_plan(result, days, hours)
-            return result
-        except Exception as e:
-            logger.error("计划生成失败: {}", e)
-            return f"计划生成失败：{e}"
 
     def generate_plan_stream(self, days: int, hours: int, start_chapter: str = "", end_chapter: str = "", course: str = "") -> Generator[str, None, None]:
         """流式生成学习计划。"""

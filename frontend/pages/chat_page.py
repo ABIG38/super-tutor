@@ -16,7 +16,7 @@ import html
 import re
 from frontend.theme import COLORS
 
-from backend.chat_store import list_sessions, new_session, load_messages, rename_session, delete_session, append_message
+from backend.chat_store import list_sessions, new_session, load_messages, rename_session, delete_session, append_message, clear_messages
 
 
 class AskThread(QThread):
@@ -158,7 +158,7 @@ class ChatPage(QWidget):
         if QMessageBox.question(self, "确认", "确定要清空当前对话的所有消息吗？", QMessageBox.Yes | QMessageBox.No) == QMessageBox.Yes:
             try:
                 if hasattr(self, '_agent') and self._agent:
-                    self._agent.chat_clear(self._current_session_id)
+                    clear_messages(self._current_session_id)
             except Exception as e:
                 QMessageBox.warning(self, "错误", f"清空对话失败：{e}")
                 return

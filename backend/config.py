@@ -37,9 +37,6 @@ class Settings(BaseSettings):
     @property
     def models_dir(self) -> Path:
         return self.storage_root_path / "models"
-    @property
-    def logs_dir(self) -> Path:
-        return self.storage_root_path / "logs"
 
 
 settings = Settings()
