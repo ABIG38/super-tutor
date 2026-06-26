@@ -38,3 +38,4 @@ app_output.log
 app_output.log
 crash.log
 reasonix.toml
+.ruff_cache/
