@@ -37,3 +37,4 @@ app_output.log
 .reasonix/
 app_output.log
 crash.log
+reasonix.toml
