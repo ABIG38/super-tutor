@@ -1,6 +1,3 @@
-"""
-全局配置 — 精简版，仅保留核心字段。
-"""
 from __future__ import annotations
 
 from pathlib import Path

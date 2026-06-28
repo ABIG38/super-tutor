@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "ppt-master": {
-      "command": "python",
-      "args": ["C:\\Users\\lenovo\\ppt-master-mcp\\server.py"]
-    }
-  }
-}
