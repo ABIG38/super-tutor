@@ -253,7 +253,7 @@ class SuperTutorAgent:
         rrf_scores = {}
         chunk_map = {}
 
-        def add_to_rrf(chunks, source_name):
+        def add_to_rrf(chunks):
             for rank, c in enumerate(chunks):
                 # 用 content 的前 80 个字符加上 filename 作为唯一摘要键去重
                 key = f"{c.get('filename', '')}_{c.get('content', '')[:80]}"
@@ -264,8 +264,8 @@ class SuperTutorAgent:
                     rrf_scores[key] = 0.0
                 rrf_scores[key] += 1.0 / (k + rank + 1)
 
-        add_to_rrf(vec_chunks, "vector")
-        add_to_rrf(bm25_chunks, "bm25")
+        add_to_rrf(vec_chunks)
+        add_to_rrf(bm25_chunks)
 
         # 按照 RRF 分数排序
         sorted_keys = sorted(rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True)
