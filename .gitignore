@@ -25,6 +25,12 @@ knowledge_base/index/logs/
 knowledge_base/logs/
 logs/
 
+# 用户会话数据（含对话隐私，不应上传）
+knowledge_base/index/chats/
+
+# 学习计划文件（个人数据）
+knowledge_base/index/plans/
+
 # 崩溃日志
 crash.log
 
@@ -33,10 +39,9 @@ crash.log
 .idea/
 *.swp
 *.swo
+
+# 应用输出
 app_output.log
-.reasonix/
-app_output.log
-crash.log
 reasonix.toml
 .ruff_cache/
 .venv/
