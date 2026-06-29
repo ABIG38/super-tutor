@@ -61,8 +61,7 @@ class DocumentParser:
 
     边界情况处理（对应 TECH_DESIGN.md 第 9 节）:
         - ① 扫描版 PDF：提取后 text.strip()=="" → scanned=True
-        - ② 加密 PDF：捕获加密异常 → raise PermissionError
-        - ③ 文件 >200MB → raise ValueError
+        - ② 文件 >200MB → raise ValueError
         - 扩展名不支持 → raise ValueError
         - 文件不存在 → FileNotFoundError
     """
@@ -101,7 +100,6 @@ class DocumentParser:
         Raises:
             FileNotFoundError: 文件不存在。
             ValueError: 文件 >200MB / 扩展名不支持。
-            PermissionError: PDF 已加密且无法解密。
         """
         path = pathlib.Path(file_path)
         logger.info("开始解析文档: {}", path.resolve())
@@ -206,11 +204,6 @@ class DocumentParser:
 
         使用 PyMuPDF（fitz）逐页提取文本。
 
-        加密检测:
-            捕获 fitz.FileDataError 和 RuntimeError，
-            将异常信息转为小写后检查是否包含 "password" 或 "encrypted"，
-            以兼容不同 PyMuPDF 版本的异常类差异。
-
         扫描件检测:
             全部页面提取后 text.strip() == "" 则标记 scanned=True。
 
@@ -219,22 +212,12 @@ class DocumentParser:
 
         Returns:
             (text, {"page_count": int, "scanned": bool})
-
-        Raises:
-            PermissionError: PDF 已加密且无法解密。
         """
         logger.debug("开始解析 PDF: {}", path.name)
 
         try:
             doc = fitz.open(str(path))
         except Exception as exc:
-            # 兼容不同 PyMuPDF 版本的加密异常
-            # 某些版本抛 fitz.FileDataError，某些版本抛 RuntimeError
-            exc_msg = str(exc).lower()
-            if "password" in exc_msg or "encrypted" in exc_msg:
-                logger.warning("PDF 已加密: {}", path.name)
-                raise PermissionError(f"PDF 已加密: {path.name}") from exc
-            # 其他未知异常，原样抛出
             logger.opt(exception=True).error("打开 PDF 失败: {}", path.name)
             raise
 

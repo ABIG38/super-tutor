@@ -22,10 +22,17 @@ from PySide6.QtWidgets import (
 )
 from frontend.theme import COLORS
 
+from backend.config import settings
 
-# ── 默认课程配置路径 ──────────────────────────────────────
 
-COURSES_JSON = Path("knowledge_base/index/courses.json")
+_COURSES_JSON = None
+
+
+def _courses_json() -> Path:
+    global _COURSES_JSON
+    if _COURSES_JSON is None:
+        _COURSES_JSON = settings.storage_root_path / "index" / "courses.json"
+    return _COURSES_JSON
 
 
 def _default_courses() -> list[dict]:
@@ -35,13 +42,14 @@ def _default_courses() -> list[dict]:
 
 def load_courses() -> list[dict]:
     """从 courses.json 加载课程列表，文件不存在则创建默认。"""
-    if not COURSES_JSON.exists():
-        COURSES_JSON.parent.mkdir(parents=True, exist_ok=True)
+    p = _courses_json()
+    if not p.exists():
+        p.parent.mkdir(parents=True, exist_ok=True)
         courses = _default_courses()
         save_courses(courses)
         return courses
     try:
-        with open(COURSES_JSON, "r", encoding="utf-8") as f:
+        with open(p, "r", encoding="utf-8") as f:
             return json.load(f)
     except (json.JSONDecodeError, FileNotFoundError):
         courses = _default_courses()
@@ -51,8 +59,9 @@ def load_courses() -> list[dict]:
 
 def save_courses(courses: list[dict]) -> None:
     """保存课程列表到 courses.json。"""
-    COURSES_JSON.parent.mkdir(parents=True, exist_ok=True)
-    with open(COURSES_JSON, "w", encoding="utf-8") as f:
+    p = _courses_json()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "w", encoding="utf-8") as f:
         json.dump(courses, f, ensure_ascii=False, indent=2)
 
 

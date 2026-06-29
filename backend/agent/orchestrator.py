@@ -320,7 +320,7 @@ class SuperTutorAgent:
 
     # ── 计划生成 ──────────────────────────────────
 
-    PLANS_DIR = Path("knowledge_base/index/plans")
+    PLANS_DIR = settings.storage_root_path / "index" / "plans"
 
     def generate_plan_stream(self, days: int, hours: int, start_chapter: str = "", end_chapter: str = "", course: str = "") -> Generator[str, None, None]:
         """流式生成学习计划。"""

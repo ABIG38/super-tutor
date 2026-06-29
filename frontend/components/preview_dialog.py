@@ -34,6 +34,13 @@ class DocumentPreviewDialog(QDialog):
         self.setWindowTitle(f"📖 {title}")
         self.setMinimumSize(800, 600)
         self.resize(960, 720)
+        self.setStyleSheet(f"""
+            DocumentPreviewDialog {{
+                background-color: #F8F6F0;
+                border: 1px solid #E0DCD0;
+                border-radius: 8px;
+            }}
+        """)
         self._setup_ui(title, text, size, scanned, is_markdown, original_path)
 
     def _setup_ui(self, title: str, text: str, size: int, scanned: bool, is_markdown: bool, original_path: str) -> None:
@@ -98,13 +105,13 @@ class DocumentPreviewDialog(QDialog):
         self.browser.setOpenExternalLinks(False)
         self.browser.setStyleSheet(f"""
             QTextBrowser {{
-                background-color: {COLORS['bg_card']};
-                border: 1px solid {COLORS['border_light']};
+                background-color: #F8F6F0;
+                border: 1px solid #E8E4DA;
                 border-radius: 8px;
                 padding: 20px;
                 font-size: 13px;
                 line-height: 1.7;
-                color: {COLORS['text_primary']};
+                color: #5C5548;
                 font-family: system-ui, -apple-system, 'PingFang SC', sans-serif;
             }}
         """)
@@ -128,14 +135,14 @@ class DocumentPreviewDialog(QDialog):
                         extensions=["extra", "tables", "fenced_code", "codehilite"],
                     )
                     styled = f"""<html><head><style>
-                        pre {{ background-color: {COLORS['bg_primary']}; padding: 12px; border-radius: 6px; border: 1px solid {COLORS['border']}; overflow-x: auto; font-family: Consolas, monospace; }}
-                        code {{ background-color: {COLORS['bg_primary']}; padding: 2px 4px; border-radius: 4px; font-family: Consolas, monospace; color: {COLORS['accent_hover']}; }}
-                        pre code {{ background-color: transparent; padding: 0; color: {COLORS['text_primary']}; }}
+                        pre {{ background-color: #F0EDE4; padding: 12px; border-radius: 6px; border: 1px solid #E0DCD0; overflow-x: auto; font-family: Consolas, monospace; }}
+                        code {{ background-color: #F0EDE4; padding: 2px 4px; border-radius: 4px; font-family: Consolas, monospace; color: #D26E4B; }}
+                        pre code {{ background-color: transparent; padding: 0; color: #5C5548; }}
                         table {{ border-collapse: collapse; width: 100%; margin: 10px 0; }}
-                        th, td {{ border: 1px solid {COLORS['border']}; padding: 8px; text-align: left; }}
-                        th {{ background-color: {COLORS['bg_primary']}; }}
-                        blockquote {{ border-left: 4px solid {COLORS['accent']}; margin: 0; padding-left: 12px; color: {COLORS['text_secondary']}; }}
-                    </style></head><body style="background:{COLORS['bg_card']};color:{COLORS['text_primary']};
+                        th, td {{ border: 1px solid #E0DCD0; padding: 8px; text-align: left; }}
+                        th {{ background-color: #F0EDE4; }}
+                        blockquote {{ border-left: 4px solid #D26E4B; margin: 0; padding-left: 12px; color: #8A7F72; }}
+                    </style></head><body style="background:#F8F6F0;color:#5C5548;
                         font-size:14px;line-height:1.8;padding:20px;
                         font-family:'Segoe UI','PingFang SC',sans-serif;">
                         {html}</body></html>"""

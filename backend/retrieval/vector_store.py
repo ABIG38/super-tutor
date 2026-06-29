@@ -1,10 +1,4 @@
-"""
-ChromaDB 向量库 — 延迟加载 Embedding 模型。
-
-修改: VectorStore 不再在 __init__ 时加载 embedding 模型，
-而是首次 add_chunks / search / delete 时再加载。
-避免应用启动时主线程卡死（~5-10秒模型加载时间）。
-"""
+"""ChromaDB 向量库 — 云端 Embedding API。"""
 from __future__ import annotations
 
 import os
@@ -19,35 +13,27 @@ from backend.config import settings
 
 
 class VectorStore:
-    """ChromaDB Vector Store Wrapper — 延迟加载 Embedding 模型。"""
+    """ChromaDB Vector Store Wrapper — 云端 Embedding API。"""
 
     def __init__(self, db_dir: str | None = None):
         if db_dir is None:
             db_dir = str(settings.chroma_dir)
         os.makedirs(db_dir, exist_ok=True)
         self.client = chromadb.PersistentClient(path=db_dir)
-        # ★ 延迟加载: 不在这里创建 embedding_fn/collection
-        # 首次 add/search/delete 时才初始化
         self.embedding_fn = None
         self.collection = None
-        logger.debug("VectorStore 初始化（延迟加载模式）")
+        logger.debug("VectorStore 初始化")
 
     def _ensure_loaded(self) -> None:
-        """★ 第一次使用时加载模型。"""
+        """★ 第一次使用时初始化 Embedding（云端 API）。"""
         if self.collection is not None:
             return
-        if settings.embedding_api_key:
-            logger.info("初始化云端 Embedding 模型: {} ({}) ...", settings.embedding_model, settings.embedding_api_base)
-            self.embedding_fn = embedding_functions.OpenAIEmbeddingFunction(
-                api_key=settings.embedding_api_key,
-                api_base=settings.embedding_api_base,
-                model_name=settings.embedding_model
-            )
-        else:
-            logger.info("初始化本地 Embedding 模型: {} ...", settings.embedding_model)
-            self.embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
-                model_name=settings.embedding_model,
-            )
+        logger.info("初始化云端 Embedding: {} ({}) ...", settings.embedding_model, settings.embedding_api_base)
+        self.embedding_fn = embedding_functions.OpenAIEmbeddingFunction(
+            api_key=settings.embedding_api_key,
+            api_base=settings.embedding_api_base,
+            model_name=settings.embedding_model
+        )
         self.collection = self.client.get_or_create_collection(
             name="supertutor_chunks",
             embedding_function=self.embedding_fn,
@@ -170,7 +156,7 @@ class VectorStore:
         Returns:
             {filename: {"doc_type": str, "course": str, "display_name": str}}
         """
-        # 不要调用 _ensure_loaded() 避免启动加载 embedding 卡死
+        # 直接读取已有 collection，不走 _ensure_loaded（不需要 Embedding）
         try:
             collection = self.collection or self.client.get_collection(name="supertutor_chunks")
         except Exception:

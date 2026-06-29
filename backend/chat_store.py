@@ -13,13 +13,13 @@ from typing import List, Dict, Optional
 
 from loguru import logger
 
-
-CHATS_DIR = Path("knowledge_base/index/chats")
+from backend.config import settings
 
 
 def _chats_dir() -> Path:
-    CHATS_DIR.mkdir(parents=True, exist_ok=True)
-    return CHATS_DIR
+    p = settings.storage_root_path / "index" / "chats"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
 
 
 def _session_path(session_id: str) -> Path:
